@@ -22,12 +22,12 @@ jobs:
           flutter-version: '3.24.x'
           channel: 'stable'
 
-      - name: Generate Android Project and Configure Permissions
+      - name: Generate Android Project and Fix Plugin ProGuard
         run: |
-          # 1. Генерируем каркас
+          # 1. Генерируем каркас Android
           flutter create . --project-name gemini_sub_translator --platforms=android --org com.example
 
-          # 2. Настраиваем SDK через Python
+          # 2. Настраиваем build.gradle, отключаем агрессивный minify/shrink и выставляем SDK 35 / 24
           python3 -c "
           import re
 
@@ -42,6 +42,13 @@ jobs:
           content = re.sub(r'minSdk\s*=\s*.*', 'minSdk = 24', content)
           content = re.sub(r'minSdkVersion\s+.*', 'minSdkVersion 24', content)
 
+          # Отключаем R8 minify, чтобы ProGuard не вырезал плагины (file_picker, ffmpeg_kit)
+          release_fix = '''
+                  minifyEnabled false
+                  shrinkResources false
+          '''
+          content = content.replace('buildTypes {', 'buildTypes {\n        release {\n' + release_fix + '\n        }')
+
           lint_block = '''
               lintOptions {
                   checkReleaseBuilds false
@@ -54,7 +61,7 @@ jobs:
           with open(path, 'w', encoding='utf-8') as f:
               f.write(content)
 
-          # 3. Добавляем системные разрешения в AndroidManifest.xml
+          # 3. Разрешения в AndroidManifest.xml
           manifest_path = 'android/app/src/main/AndroidManifest.xml'
           with open(manifest_path, 'r', encoding='utf-8') as f:
               manifest = f.read()
@@ -69,6 +76,16 @@ jobs:
 
           with open(manifest_path, 'w', encoding='utf-8') as f:
               f.write(manifest)
+
+          # 4. Создаем ProGuard-правила для гарантированного сохранения плагинов
+          proguard_path = 'android/app/proguard-rules.pro'
+          with open(proguard_path, 'w', encoding='utf-8') as f:
+              f.write('''
+          -keep class com.mr.flutter.plugin.filepicker.** { *; }
+          -keep class com.arthenica.ffmpegkit.** { *; }
+          -dontwarn com.mr.flutter.plugin.filepicker.**
+          -dontwarn com.arthenica.ffmpegkit.**
+          ''')
           "
 
           yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses || true
@@ -76,8 +93,8 @@ jobs:
       - name: Install dependencies
         run: flutter pub get
 
-      - name: Build APK (Release)
-        run: flutter build apk --release
+      - name: Build APK (Release without code stripping)
+        run: flutter build apk --release --no-shrink
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
