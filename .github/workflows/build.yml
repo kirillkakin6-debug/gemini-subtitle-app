@@ -22,12 +22,13 @@ jobs:
           flutter-version: '3.24.x'
           channel: 'stable'
 
-      # Автоматически генерирует каркас Android без необходимости делать это вручную
+      # Передаем --project-name, чтобы дефисы в названии репозитория не ломали сборку
       - name: Create Android Project Skeleton
         run: |
-          flutter create . --platforms=android --org com.example
-          sed -i 's/minSdkVersion .*/minSdkVersion 24/' android/app/build.gradle || true
-          sed -i 's/minSdk = .*/minSdk = 24/' android/app/build.gradle || true
+          flutter create . --project-name gemini_sub_translator --platforms=android --org com.example
+          sed -i 's/minSdkVersion [0-9]*/minSdkVersion 24/' android/app/build.gradle || true
+          sed -i 's/minSdk = [0-9]*/minSdk = 24/' android/app/build.gradle || true
+          sed -i 's/flutter.minSdkVersion/24/' android/app/build.gradle || true
 
       - name: Install dependencies
         run: flutter pub get
