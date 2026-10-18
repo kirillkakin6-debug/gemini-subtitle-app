@@ -10,7 +10,7 @@ dependencies:
   flutter:
     sdk: flutter
   file_picker: ^8.1.4
-  ffmpeg_kit_flutter_full_gpl: ^6.0.3
+  ffmpeg_kit_flutter_new: ^3.0.0
   http: ^1.2.2
   path_provider: ^2.1.4
   share_plus: ^10.0.2

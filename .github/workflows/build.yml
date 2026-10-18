@@ -11,7 +11,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Set up Java 17
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v5
         with:
           distribution: 'temurin'
           java-version: '17'
@@ -22,13 +22,25 @@ jobs:
           flutter-version: '3.24.x'
           channel: 'stable'
 
-      # Передаем --project-name, чтобы дефисы в названии репозитория не ломали сборку
-      - name: Create Android Project Skeleton
+      - name: Generate Android Scaffolding and Configure SDK
         run: |
+          # 1. Создание каркаса приложения под правильным именем проекта
           flutter create . --project-name gemini_sub_translator --platforms=android --org com.example
-          sed -i 's/minSdkVersion [0-9]*/minSdkVersion 24/' android/app/build.gradle || true
-          sed -i 's/minSdk = [0-9]*/minSdk = 24/' android/app/build.gradle || true
-          sed -i 's/flutter.minSdkVersion/24/' android/app/build.gradle || true
+
+          # 2. Гарантированное выставление minSdk 24 (нужно для FFmpeg) и compileSdk / targetSdk 35 (требуется плагинами)
+          BUILD_GRADLE="android/app/build.gradle"
+          
+          sed -i 's/compileSdkVersion [0-9]*/compileSdkVersion 35/' "$BUILD_GRADLE" || true
+          sed -i 's/compileSdk = [0-9]*/compileSdk = 35/' "$BUILD_GRADLE" || true
+          sed -i 's/flutter.compileSdkVersion/35/' "$BUILD_GRADLE" || true
+          
+          sed -i 's/targetSdkVersion [0-9]*/targetSdkVersion 35/' "$BUILD_GRADLE" || true
+          sed -i 's/targetSdk = [0-9]*/targetSdk = 35/' "$BUILD_GRADLE" || true
+          sed -i 's/flutter.targetSdkVersion/35/' "$BUILD_GRADLE" || true
+          
+          sed -i 's/minSdkVersion [0-9]*/minSdkVersion 24/' "$BUILD_GRADLE" || true
+          sed -i 's/minSdk = [0-9]*/minSdk = 24/' "$BUILD_GRADLE" || true
+          sed -i 's/flutter.minSdkVersion/24/' "$BUILD_GRADLE" || true
 
       - name: Install dependencies
         run: flutter pub get
