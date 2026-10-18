@@ -22,12 +22,12 @@ jobs:
           flutter-version: '3.24.x'
           channel: 'stable'
 
-      - name: Generate Android Project and Configure SDK 35
+      - name: Generate Android Project and Configure Permissions
         run: |
-          # 1. Генерируем Android-проект
+          # 1. Генерируем каркас
           flutter create . --project-name gemini_sub_translator --platforms=android --org com.example
 
-          # 2. Гарантированно и безопасно настраиваем версии SDK через Python (без багов sed)
+          # 2. Настраиваем SDK через Python
           python3 -c "
           import re
 
@@ -35,19 +35,13 @@ jobs:
           with open(path, 'r', encoding='utf-8') as f:
               content = f.read()
 
-          # Задаем строго compileSdk 35
           content = re.sub(r'compileSdk\s*=\s*.*', 'compileSdk = 35', content)
           content = re.sub(r'compileSdkVersion\s+.*', 'compileSdkVersion 35', content)
-
-          # Задаем targetSdk 35
           content = re.sub(r'targetSdk\s*=\s*.*', 'targetSdk = 35', content)
           content = re.sub(r'targetSdkVersion\s+.*', 'targetSdkVersion 35', content)
-
-          # Задаем minSdk 24 (нужен для FFmpeg)
           content = re.sub(r'minSdk\s*=\s*.*', 'minSdk = 24', content)
           content = re.sub(r'minSdkVersion\s+.*', 'minSdkVersion 24', content)
 
-          # Отключаем сбой сборки из-за несущественных проверок lint
           lint_block = '''
               lintOptions {
                   checkReleaseBuilds false
@@ -59,9 +53,24 @@ jobs:
 
           with open(path, 'w', encoding='utf-8') as f:
               f.write(content)
+
+          # 3. Добавляем системные разрешения в AndroidManifest.xml
+          manifest_path = 'android/app/src/main/AndroidManifest.xml'
+          with open(manifest_path, 'r', encoding='utf-8') as f:
+              manifest = f.read()
+
+          permissions = '''
+              <uses-permission android:name=\"android.permission.INTERNET\"/>
+              <uses-permission android:name=\"android.permission.READ_EXTERNAL_STORAGE\" android:maxSdkVersion=\"32\"/>
+              <uses-permission android:name=\"android.permission.READ_MEDIA_VIDEO\"/>
+              <uses-permission android:name=\"android.permission.READ_MEDIA_AUDIO\"/>
+          '''
+          manifest = manifest.replace('<manifest xmlns:android=\"http://schemas.android.com/apk/res/android\">', '<manifest xmlns:android=\"http://schemas.android.com/apk/res/android\">\n' + permissions)
+
+          with open(manifest_path, 'w', encoding='utf-8') as f:
+              f.write(manifest)
           "
 
-          # 3. Принимаем лицензии Android SDK 35
           yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses || true
 
       - name: Install dependencies

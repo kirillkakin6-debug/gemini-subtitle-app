@@ -126,34 +126,56 @@ class _MainTranslatorScreenState extends State<MainTranslatorScreen> {
     });
   }
 
-  // 1. Выбор файлов (видео и субтитров пачкой)
-  Future<void> _pickFiles() async {
-    final res = await FilePicker.platform.pickFiles(
-      allowMultiple: true,
-      type: FileType.custom,
-      allowedExtensions: [
-        'mp4', 'mkv', 'avi', 'mov', 'webm', 'ts',
-        'srt', 'ass', 'vtt', 'sub', 'smi', 'stl'
-      ],
-    );
 
-    if (res != null && res.paths.isNotEmpty) {
+// 1. Выбор файлов (видео и субтитров) через универсальный FileType.any
+  Future<void> _pickFiles() async {
+    _log("Открытие проводника...");
+    try {
+      final res = await FilePicker.platform.pickFiles(
+        allowMultiple: true,
+        type: FileType.any, // Гарантирует открытие проводника на всех версиях Android
+      );
+
+      if (res == null || res.paths.isEmpty) {
+        _log("Выбор файлов отменен пользователем.");
+        return;
+      }
+
+      int addedCount = 0;
       for (var path in res.paths) {
         if (path == null) continue;
         final ext = p.extension(path).toLowerCase();
-        final isVid = ['.mp4', '.mkv', '.avi', '.mov', '.webm', '.ts'].contains(ext);
+
+        final isVid = ['.mp4', '.mkv', '.avi', '.mov', '.webm', '.ts', '.m4v'].contains(ext);
+        final isSub = ['.srt', '.ass', '.vtt', '.sub', '.smi', '.stl', '.txt'].contains(ext);
+
+        // Пропускаем нерелевантные файлы (картинки, exe и т.д.)
+        if (!isVid && !isSub) {
+          _log("Пропущен неподдерживаемый файл: ${p.basename(path)}");
+          continue;
+        }
+
         final item = QueueItem(path: path, isVideo: isVid);
 
         if (isVid) {
-          _log("Анализ дорожек: ${p.basename(path)}");
+          _log("Поиск дорожек в видео: ${p.basename(path)}");
           item.tracks = await _probeSubtitleTracks(path);
           if (item.tracks.isNotEmpty) {
             item.selectedTrack = item.tracks.first;
+            _log("Найдено дорожек: ${item.tracks.length}");
+          } else {
+            _log("Встроенных субтитров не обнаружено.");
           }
         }
+
         _queue.add(item);
+        addedCount++;
       }
+
       setState(() {});
+      _log("Успешно добавлено в очередь: $addedCount");
+    } catch (e, stack) {
+      _log("Ошибка при выборе файлов: $e");
     }
   }
 
